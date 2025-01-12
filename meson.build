@@ -17,6 +17,7 @@ deps = []
 pubinc = []
 inc = [include_directories('./')]
 src = files(
+  'connection.c',
   'utils/xalloc.c'
 )
 
