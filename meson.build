@@ -18,6 +18,7 @@ pubinc = []
 inc = [include_directories('./')]
 src = files(
   'connection.c',
+  'epoll_server.c',
   'utils/xalloc.c'
 )
 
