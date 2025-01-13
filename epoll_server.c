@@ -88,3 +88,105 @@ int prepare_socket(const char *ip, const char *port)
 
     return sfd;
 }
+
+struct connection_t *accept_client(int epoll_instance, int server_socket,
+                                   struct connection_t *connection)
+{
+    int sfd = accept(server_socket, NULL, NULL);
+
+    if (sfd == -1)
+    {
+        return connection;
+    }
+
+    fcntl(sfd, F_GETFL);
+
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    event.data.fd = sfd;
+
+    if (epoll_ctl(epoll_instance, EPOLL_CTL_ADD, sfd, &event) == -1)
+    {
+        close(sfd);
+        errx(EXIT_FAILURE, "error can't add client to epoll");
+    }
+
+    return add_client(connection, sfd);
+}
+
+void aux_send(struct connection_t *tmp, char *buff, ssize_t r)
+{
+    while (tmp != NULL)
+    {
+        send(tmp->client_socket, buff, r, 0);
+        tmp = tmp->next;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 3)
+    {
+        return 1;
+    }
+
+    int sfd = prepare_socket(argv[1], argv[2]);
+    fcntl(sfd, F_GETFL);
+
+    int epoll_instance = epoll_create1(0);
+
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    event.data.fd = sfd;
+
+    if (epoll_ctl(epoll_instance, EPOLL_CTL_ADD, sfd, &event) == -1)
+    {
+        err(EXIT_FAILURE, "error add server socket to epoll");
+    }
+
+    struct connection_t *connection = NULL;
+    struct epoll_event events[MAX_EVENTS];
+
+    while (1)
+    {
+        int events_count = epoll_wait(epoll_instance, events, MAX_EVENTS, -1);
+
+        if (events_count == -1)
+        {
+            err(EXIT_FAILURE, "error epoll_wait");
+        }
+
+        for (int i = 0; i < events_count; i++)
+        {
+            if (events[i].data.fd == sfd)
+            {
+                connection = accept_client(epoll_instance, sfd, connection);
+            }
+            else
+            {
+                char buff[DEFAULT_BUFFER_SIZE];
+                ssize_t r =
+                    recv(events[i].data.fd, buff, DEFAULT_BUFFER_SIZE - 1, 0);
+
+                if (r <= 0)
+                {
+                    if (r == 0)
+                        connection =
+                            remove_client(connection, events[i].data.fd);
+                }
+                else
+                {
+                    buff[r] = '\0';
+                    struct connection_t *tmp = connection;
+
+                    aux_send(tmp, buff, r);
+                }
+            }
+        }
+    }
+
+    close(sfd);
+    close(epoll_instance);
+
+    return 0;
+}

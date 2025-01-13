@@ -42,4 +42,17 @@ int create_and_bind(struct addrinfo *addrinfo);
  */
 int prepare_socket(const char *ip, const char *port);
 
+/**
+ * \brief Accept a new client and add it to the connection_t struct
+ *
+ * \param epoll_instance: the epoll instance
+ * \param server_socket: listening socket
+ * \param connection: the connection linked list with all the current
+ * connections
+ *
+ * \return The connection struct with the new client added
+ */
+struct connection_t *accept_client(int epoll_instance, int server_socket,
+                                   struct connection_t *connection);
+
 #endif /* !EPOLL_SERVER_H */
